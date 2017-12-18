@@ -24,11 +24,11 @@ import cMCMC
 
 def get_values(US):
     if US == 'RGB':
-        files = glob.glob('../data/Saniya_RGBB/'+US+'*.*')[0]
+        files = glob.glob('data/'+US+'*.*')[0]
         df = pd.read_table(files, sep=',', header=0, error_bad_lines=False)
 
     else:
-        files = glob.glob('../data/Saniya_RGBB/*'+US+'.*')[0]
+        files = glob.glob('data/*'+US+'.*')[0]
         df = pd.read_table(files, sep='\s+', header=0, skiprows=3, error_bad_lines=False)
 
     df['logT'] = np.log10(df.Teff)
@@ -235,4 +235,4 @@ if __name__ == '__main__':
         #M = 1.20 MSun, Undershoot ="+US+"\n\
         #Columns: Teff (K) - L (LSun) - numax (muHz) - dnu (muHz) - g (cm/s^2) - logT - logL - logg - lognumax - label\n\
         #Teff\t\t\t\tL\t\t\t\tnumax\t\t\t\tdnu\t\t\t\tg\t\t\t\tlogT\t\t\t\tlogL\t\t\t\tlogg\t\t\t\tlognumax\t\t\t\tlabel"
-        df.to_csv('../data/m1.20.ovh0.01d.ovhe0.50s.z0.01756.y0.26618.under'+US+'_labeled.txt',header=header,sep='\t')
+        df.to_csv('data/m1.20.ovh0.01d.ovhe0.50s.z0.01756.y0.26618.under'+US+'_labeled.txt',header=header,sep='\t')
