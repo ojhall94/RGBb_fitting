@@ -46,6 +46,32 @@ if __name__ == "__main__":
     plt.close('all')
     x, y, df = get_values('RGB')
 
+    x = np.arange(-4,5,0.1)
+    y = np.arange(-4,5,0.1)
+    X, Y = np.meshgrid(x, y)
+
+    sigx = 1.
+    sigy = 1.
+    mx = 0.
+    my = 0.
+    rholist = np.arange(-0.9,0.9,0.2)
+    for rho in rholist:
+        f = 1/(2*np.pi*sigx*sigy*np.sqrt(1-rho**2)) * np.exp(\
+            (-1/(2*(1-rho**2))) * (\
+            ((X - mx)**2/sigx**2) + ((Y - my)**2/sigy**2)) -\
+            (2*rho*(X - mx)*(Y - my))/(sigx * sigy)))
+
+
+        plt.contour(x, y, f, n=100)
+        plt.show()
+
+
+
+
+
+
+
+    sys.exit()
     mlo = np.arange(0.9,1.7,0.2)
     mhi = np.arange(1.1,1.9,0.2)
     flo = np.arange(-0.5,0.3,0.2)
