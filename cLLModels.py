@@ -37,8 +37,8 @@ class LLModels:
         '''A fit in y for a straight line with gaussian noise.'''
         sigma = p[self.locsigma]
         m = p[self.locm]
-        c = p[self.loc]
+        c = p[self.locc]
 
         M = self.x * m + c
-        lnLy = -0.5 * (((M - self.y) / sigma)**2 + 2*np.log(sigma) + np.log(2*np.pi))
+        lnLy = -0.5 * (((self.y - M) / sigma)**2 + 2*np.log(sigma) + np.log(2*np.pi))
         return lnLy

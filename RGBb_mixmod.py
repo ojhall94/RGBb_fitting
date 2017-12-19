@@ -42,10 +42,10 @@ class cLikelihood:
 
     #Likelihood for the 'foreground'
     def lnlike_fg(self, p):
-        return self.Model.gauss_x(p)
+        return self.Model.gauss_x(p) + self.Model.gauss_line_y(p)
 
     def lnlike_bg(self, p):
-        return self.Model.exp_x(p)
+        return self.Model.exp_x(p) + self.Model.gauss_line_y(p)
 
     def lnprob(self, p):
         Q = p[-1]
@@ -96,31 +96,40 @@ if __name__ == '__main__':
     ax[1].set_title(r"Histogram in $log_{10}$($\nu_{max}$)")
     ax[1].set_xlabel(r"$log_{10}$($\nu_{max}$ ($\mu$Hz))")
     fig.tight_layout()
-    plt.show()
-    # fig.savefig('Output/investigate_RGB.png')
+    fig.savefig('Output/investigate_RGB.png')
     plt.close('all')
 
 ####---SETTING UP MCMC
-    labels_mc = ["$b$", r"$\sigma(b)$", r"$\lambda$","$Q$"]
-    start_params = np.array([lognuguess, 0.02, 1.8, 0.5])
+    fn = np.polyfit(x, y, 1)
+    fy = x*fn[0]+fn[1]
+
+    labels_mc = ["$b$", r"$\sigma(b)$", r"$\lambda$",r"$m$",r"$c$",r"$\sigma$","$Q$"]
+    start_params = np.array([lognuguess, 0.02, \
+                            1.8,\
+                            fn[0], fn[1], np.std(y-fy),\
+                            0.5])
     bounds = [(lognuguess-.05, lognuguess+.05,), (0.01,0.05),\
-                (1.4, 2.2), (0,1)]
+                (1.4, 2.2),\
+                (fn[0]*0.8, fn[0]*1.2), (fn[1]*0.8, fn[1]*1.2),\
+                (np.std(y-fy)*0.5, np.std(y-fy)*1.5),\
+                (0,1)]
 
     ModeLLs = cLLModels.LLModels(x, y, labels_mc)
     lnprior = cPrior.Prior(bounds)
     Like = cLikelihood(lnprior,ModeLLs)
 
 ####---CHECKING MODELS BEFORE RUN
+
     #Getting the KDE of the 2D distribution
     xxyy = np.ones([len(x),2])
     xxyy[:,0] = x
-    xxyy[:,1] = y
+    xxyy[:,1] = y - fy
     kde = stats.gaussian_kde(xxyy.T)
 
     #Setting up a 2D meshgrid
     size = 200
     xx = np.linspace(x.min(),x.max(),size)
-    yy = np.linspace(y.min(),y.max(),size)
+    yy = np.linspace((y-fy).min(),(y-fy).max(),size)
     X, Y  = np.meshgrid(xx, yy)
     d = np.ones([size, size])
 
@@ -142,28 +151,27 @@ if __name__ == '__main__':
     yax.grid()
     yax.set_axisbelow(True)
 
-    fn = np.polyfit(x, y, 1)
-    fy = x*fn[0]+fn[1]
-
     fig.suptitle('KDE of RGBB residuals to straight line polyfit (real data)')
 
     sax.hist2d(xxyy[:,0],xxyy[:,1],bins=bins, cmap='Blues_r', zorder=1000)
     sax.contour(X,Y,d, cmap='copper', zorder=1001, label='Kernel Density',)
+    sax.axhline(0.,c='r')
     sax.legend(loc='best',fancybox=True)
+
     yax.hist(y-fy,bins=bins,histtype='step',orientation='horizontal', normed=True)
+    yax.scatter(np.exp(ModeLLs.gauss_line_y(start_params)), y-fy,c='orange',label='Line Fit Model')
     yax.set_ylim(sax.get_ylim())
+
     xax2 = xax.twinx()
     xax2.scatter(x,np.exp(ModeLLs.gauss_x(start_params)),c='cornflowerblue', label='RGBB Model')
     xax.scatter(x,np.exp(ModeLLs.exp_x(start_params)),c='orange', label='RGB Model')
     xax.hist(x,bins=bins,histtype='step',color='r',normed=True)
 
-    sax.set_ylabel(r"$log_{10}(T_{eff})$")
+    sax.set_ylabel(r"$log_{10}(T_{eff})$ - Straight line Fit")
     xax.set_xlabel(r"$log_{10}(\nu_{max})$")
     plt.show()
-    # fig.savefig('Output/KDE_visual_RGB.png')
+    fig.savefig('Output/KDE_visual_RGB.png')
     plt.close('all')
-
-    sys.exit()
 
 
 ####---RUNNING MCMC
@@ -180,7 +188,7 @@ if __name__ == '__main__':
     lnK, fg_pp = Fit.log_bayes()
     mask = lnK > 1
     Fit.dump()
-
+    sys.exit()
 ####---PLOTTING RESULTS
     print('Plotting results...')
     npa = chain.shape[1]
@@ -190,29 +198,42 @@ if __name__ == '__main__':
         res[idx] = np.median(chain[:,idx])
         std[idx] = np.std(chain[:,idx])
 
+    resy = res[3]*x + res[4]
+
     #Plotting residuals with histograms
     #Plotting residuals with histograms
-    left, bottom, width, height = 0.1, 0.35, 0.8, 0.60
+    left, bottom, width, height = 0.1, 0.35, 0.55, 0.60
     fig = plt.figure(1, figsize=(8,8))
     sax = fig.add_axes([left, bottom, width, height])
-    xax = fig.add_axes([left, 0.1, width-0.15, 0.22], sharex=sax)
+    yax = fig.add_axes([left+width+0.02, bottom, 0.2, height])
+    xax = fig.add_axes([left, 0.1, width, 0.22], sharex=sax)
     sax.xaxis.set_visible(False)
+    yax.set_yticklabels([])
     xax.grid()
     xax.set_axisbelow(True)
+    yax.grid()
+    yax.set_axisbelow(True)
+    # colax = fig.add_axes([left+width+0.02+0.2+0.02, bottom,0.1, height])
 
     fig.suptitle('KDE of RGBB residuals to straight line polyfit (real data)')
 
-    col = sax.scatter(x, y, c=fg_pp, cmap='viridis')
-    fig.colorbar(col, ax=sax, label = 'RGBB membership posterior probability')
+    col = sax.scatter(x, y-resy, c=fg_pp, s=5, cmap='viridis')
+    sax.axhline(0.,c='r',linestyle='--')
+    fig.colorbar(col, ax=yax, label = 'RGBB membership posterior probability')
+
+    yax.hist(y-resy,bins=bins,histtype='step',orientation='horizontal', normed=True)
+    yax.scatter(np.exp(ModeLLs.gauss_line_y(res)), y-resy,c='orange',label='Line Fit Model')
+    yax.set_ylim(sax.get_ylim())
 
     xax2 = xax.twinx()
     xax2.scatter(x,np.exp(ModeLLs.gauss_x(res)),c='cornflowerblue', label='RGBB Model')
     xax.scatter(x,np.exp(ModeLLs.exp_x(res)),c='orange', label='RGB Model')
     xax.hist(x,bins=bins,histtype='step',color='r',normed=True)
 
-    sax.set_ylabel(r"$log_{10}(T_{eff})$")
-    xax.set_xlabel(r"$log_{10}(\nu_{max})$")
+    sax.set_ylabel(r"log$_{10}(T_{eff})$ - Straight Line Fit")
+    xax.set_xlabel(r"log$_{10}(\nu_{\rm{max}})$")
     fig.savefig('Output/result_RGB.png')
+    plt.show()
     plt.close('all')
 
 
@@ -223,7 +244,7 @@ if __name__ == '__main__':
     ax.scatter(df.Teff[mask], df.numax[mask], c='y', s=3, label='RGBB Stars')
     ax.scatter(df.Teff[~mask], df.numax[~mask], c='g', s=3, label='RGB Stars')
     ax.legend(loc='best',fancybox=True)
-    ax.text(4600,200,r"$\nu_{max}$ RGBB stddev = "+str.format('{0:.3f}',np.std(df.numax[mask]))+r"$\mu$Hz")
+    ax.text(4600,150,r"$\nu_{max}$ RGBB stddev = "+str.format('{0:.3f}',np.std(df.numax[mask]))+r"$\mu$Hz")
     ax.invert_xaxis()
     ax.invert_yaxis()
     ax.set_title(r"Identified RGBB stars in $\nu_{max}$ for real data.")
