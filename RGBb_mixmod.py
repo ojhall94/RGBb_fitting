@@ -42,7 +42,7 @@ class cLikelihood:
 
     #Likelihood for the 'foreground'
     def lnlike_fg(self, p):
-        return self.Model.gauss_x(p) + self.Model.gauss_line_y(p)
+        return self.Model.bivar_gaussian(p)
 
     def lnlike_bg(self, p):
         return self.Model.exp_x(p) + self.Model.gauss_line_y(p)
@@ -103,7 +103,7 @@ if __name__ == '__main__':
     fn = np.polyfit(x, y, 1)
     fy = x*fn[0]+fn[1]
 
-    labels_mc = ["$b$", r"$\sigma(b)$", r"$\lambda$",r"$m$",r"$c$",r"$\sigma$","$Q$"]
+    labels_mc = [r"$\mu_x$", r"$\mu_y$", r"$\sigma_x$", r"$\sigma_y$", r"$\rho$", r"$\lambda$","m","c",r"$\sigma$","$Q$"]
     start_params = np.array([lognuguess, 0.02, \
                             1.8,\
                             fn[0], fn[1], np.std(y-fy),\
