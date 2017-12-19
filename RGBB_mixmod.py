@@ -36,9 +36,8 @@ def get_values(US):
     df['lognumax'] = np.log10(df.numax)
 
 
-
     df = df.sort_values(by=['numax'])
-    return df.lognumax, df.logT, df
+    return df.lognumax, df.logT, df, files
 
 class cModel:
     '''Models for this run.'''
@@ -75,7 +74,7 @@ if __name__ == '__main__':
 ####---SETTING UP DATA
     '''Under: 0.00, 0.025, 0.02, 0.04'''
     for US in ('RGB','0.00','0.025','0.02','0.04'):
-        x, y, df = get_values(US)
+        x, y, df, sfile = get_values(US)
 
         bins = int(np.sqrt(len(x)))
 
@@ -235,4 +234,4 @@ if __name__ == '__main__':
         #M = 1.20 MSun, Undershoot ="+US+"\n\
         #Columns: Teff (K) - L (LSun) - numax (muHz) - dnu (muHz) - g (cm/s^2) - logT - logL - logg - lognumax - label\n\
         #Teff\t\t\t\tL\t\t\t\tnumax\t\t\t\tdnu\t\t\t\tg\t\t\t\tlogT\t\t\t\tlogL\t\t\t\tlogg\t\t\t\tlognumax\t\t\t\tlabel"
-        df.to_csv('data/m1.20.ovh0.01d.ovhe0.50s.z0.01756.y0.26618.under'+US+'_labeled.txt',header=header,sep='\t')
+        df.to_csv(sfile+'_labeled.txt',header=header,sep='\t')
