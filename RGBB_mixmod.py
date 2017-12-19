@@ -19,6 +19,7 @@ matplotlib.rcParams['ytick.direction'] = 'out'
 import scipy.stats as stats
 
 import cPrior
+import cLLModels
 import cLikelihood
 import cMCMC
 
@@ -39,34 +40,45 @@ def get_values(US):
     df = df.sort_values(by=['numax'])
     return df.lognumax, df.logT, df, files
 
-class cModel:
-    '''Models for this run.'''
-    def __init__(self, _x, _y):
-        self.x = _x
-        self.y = _y
+class Likelihood:
+    '''A likelihood function that pulls in log likehoods from the LLModels class
+    '''
+    def __init__(self,_lnprior, _Model):
+        self.lnprior = _lnprior
+        self.Model = _Model
 
-    def fg_x(self, p):
-        b, sigb, _, _ = p
+    #Likelihood for the 'foreground'
+    def lnlike_fg(self, p):
+        return self.Model.gauss_x(p)
 
-        #Calculating the likelihood in the X direction
-        lnLx = -0.5 * (((b - self.x) / sigb)**2 + 2*np.log(sigb) +np.log(2*np.pi))
-        return lnLx
+    def lnlike_bg(self, p):
+        return self.Model.exp_x(p)
 
-    def bg_x(self, p):
-        _, _, lambd, _ = p
+    def lnprob(self, p):
+        Q = p[-1]
 
-        #Calculating the likelihood in the X direction
-        A = lambd * (np.exp(lambd*x.max()) - np.exp(lambd*x.min()))**-1
-        lnLx = np.log(A) + lambd*x
-        return lnLx
+        # First check the prior.
+        lp = self.lnprior(p)
+        if not np.isfinite(lp):
+            return -np.inf, None
 
-    def bg(self, p):
-        bg =  self.bg_x(p)
-        return bg
+        # Compute the vector of foreground likelihoods and include the q prior.
+        ll_fg = self.lnlike_fg(p)
+        arg1 = ll_fg + np.log(Q)
 
-    def fg(self, p):
-        fg = self.fg_x(p)
-        return fg
+        # Compute the vector of background likelihoods and include the q prior.
+        ll_bg = self.lnlike_bg(p)
+        arg2 = ll_bg + np.log(1.0 - Q)
+
+        # Combine these using log-add-exp for numerical stability.
+        ll = np.nansum(np.logaddexp(arg1, arg2))
+
+        return lp + ll
+
+    def __call__(self, p):
+        logL = self.lnprob(p)
+        return logL
+
 
 
 if __name__ == '__main__':
@@ -101,7 +113,7 @@ if __name__ == '__main__':
         start_params = np.array([lognuguess, 0.02, 1.8, 0.5])
         bounds = [(lognuguess-.05, lognuguess+.05,), (0.01,0.05),\
                     (1.4, 2.2), (0,1)]
-        Model = cModel(x, y)
+        Model = cLLModels(x, y, labels_mc)
         lnprior = cPrior.Prior(bounds)
         Like = cLikelihood.Likelihood(lnprior,Model)
 
