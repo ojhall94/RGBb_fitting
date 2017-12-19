@@ -2,7 +2,7 @@
 import numpy as np
 
 
-class cLLModels:
+class LLModels:
     '''Set of likelihood functions and models'''
     def __init__(self, _x, _y, _labels):
         self.x = _x
@@ -26,6 +26,6 @@ class cLLModels:
         lambd = p[self.loclambd]
 
         #Calculating the likelihood in the X direction
-        A = lambd * (np.exp(lambd*x.max()) - np.exp(lambd*x.min()))**-1
-        lnLx = np.log(A) + lambd*x
+        A = lambd * (np.exp(lambd*self.x.max()) - np.exp(lambd*self.x.min()))**-1
+        lnLx = np.log(A) + lambd*self.x
         return lnLx

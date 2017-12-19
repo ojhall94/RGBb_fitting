@@ -84,7 +84,7 @@ if __name__ == '__main__':
     plt.close('all')
 ####---SETTING UP DATA
     '''Under: 0.00, 0.025, 0.02, 0.04'''
-    for US in ('0.00','0.025','0.02','0.04'):
+    for US in ('RGB','0.00','0.025','0.02','0.04'):
         x, y, df, sfile = get_values(US)
 
         bins = int(np.sqrt(len(x)))
