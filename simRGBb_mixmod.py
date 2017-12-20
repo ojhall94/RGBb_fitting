@@ -19,7 +19,7 @@ matplotlib.rcParams['ytick.direction'] = 'out'
 import scipy.stats as stats
 
 import cPrior
-import cLikelihood
+import cLLModels
 import cMCMC
 
 def get_values(US):
@@ -36,38 +36,48 @@ def get_values(US):
     df['lognumax'] = np.log10(df.numax)
 
 
-
     df = df.sort_values(by=['numax'])
-    return df.lognumax, df.logT, df
+    return df.lognumax, df.logT, df, files
 
-class cModel:
-    '''Models for this run.'''
-    def __init__(self, _x, _y):
-        self.x = _x
-        self.y = _y
+class cLikelihood:
+    '''A likelihood function that pulls in log likehoods from the LLModels class
+    '''
+    def __init__(self,_lnprior, _Model):
+        self.lnprior = _lnprior
+        self.Model = _Model
 
-    def fg_x(self, p):
-        b, sigb, _, _ = p
+    #Likelihood for the 'foreground'
+    def lnlike_fg(self, p):
+        return self.Model.gauss_x(p)
 
-        #Calculating the likelihood in the X direction
-        lnLx = -0.5 * (((b - self.x) / sigb)**2 + 2*np.log(sigb) +np.log(2*np.pi))
-        return lnLx
+    def lnlike_bg(self, p):
+        return self.Model.exp_x(p)
 
-    def bg_x(self, p):
-        _, _, lambd, _ = p
+    def lnprob(self, p):
+        Q = p[-1]
 
-        #Calculating the likelihood in the X direction
-        A = lambd * (np.exp(lambd*x.max()) - np.exp(lambd*x.min()))**-1
-        lnLx = np.log(A) + lambd*x
-        return lnLx
+        # First check the prior.
+        lp = self.lnprior(p)
+        if not np.isfinite(lp):
+            return -np.inf, None
 
-    def bg(self, p):
-        bg =  self.bg_x(p)
-        return bg
+        # Compute the vector of foreground likelihoods and include the q prior.
+        ll_fg = self.lnlike_fg(p)
+        arg1 = ll_fg + np.log(Q)
 
-    def fg(self, p):
-        fg = self.fg_x(p)
-        return fg
+        # Compute the vector of background likelihoods and include the q prior.
+        ll_bg = self.lnlike_bg(p)
+        arg2 = ll_bg + np.log(1.0 - Q)
+
+        # Combine these using log-add-exp for numerical stability.
+        ll = np.nansum(np.logaddexp(arg1, arg2))
+
+        return lp + ll
+
+    def __call__(self, p):
+        logL = self.lnprob(p)
+        return logL
+
 
 
 if __name__ == '__main__':
@@ -75,7 +85,7 @@ if __name__ == '__main__':
 ####---SETTING UP DATA
     '''Under: 0.00, 0.025, 0.02, 0.04'''
     for US in ('RGB','0.00','0.025','0.02','0.04'):
-        x, y, df = get_values(US)
+        x, y, df, sfile = get_values(US)
 
         bins = int(np.sqrt(len(x)))
 
@@ -94,6 +104,7 @@ if __name__ == '__main__':
         ax[1].set_title(r"Histogram in $log_{10}$($\nu_{max}$)")
         ax[1].set_xlabel(r"$log_{10}$($\nu_{max}$ ($\mu$Hz))")
         fig.tight_layout()
+        plt.show()
         fig.savefig('Output/investigate_US_'+US+'.png')
         plt.close('all')
 
@@ -102,9 +113,9 @@ if __name__ == '__main__':
         start_params = np.array([lognuguess, 0.02, 1.8, 0.5])
         bounds = [(lognuguess-.05, lognuguess+.05,), (0.01,0.05),\
                     (1.4, 2.2), (0,1)]
-        Model = cModel(x, y)
+        ModeLLs = cLLModels.LLModels(x, y, labels_mc)
         lnprior = cPrior.Prior(bounds)
-        Like = cLikelihood.Likelihood(lnprior,Model)
+        Like = cLikelihood(lnprior,ModeLLs)
 
 ####---CHECKING MODELS BEFORE RUN
         #Getting the KDE of the 2D distribution
@@ -148,8 +159,8 @@ if __name__ == '__main__':
         # yax.scatter(np.exp(Model.prob_y(start_params)), y,c='orange')
         yax.set_ylim(sax.get_ylim())
         xax2 = xax.twinx()
-        xax2.scatter(x,np.exp(Model.fg_x(start_params)),c='cornflowerblue', label='RGBB Model')
-        xax.scatter(x,np.exp(Model.bg_x(start_params)),c='orange', label='RGB Model')
+        xax2.scatter(x,np.exp(ModeLLs.gauss_x(start_params)),c='cornflowerblue', label='RGBB Model')
+        xax.scatter(x,np.exp(ModeLLs.exp_x(start_params)),c='orange', label='RGB Model')
         xax.hist(x,bins=bins,histtype='step',color='r',normed=True)
 
         sax.set_ylabel(r"$log_{10}(T_{eff})$")
@@ -197,8 +208,8 @@ if __name__ == '__main__':
         fig.colorbar(col, ax=sax, label = 'RGBB membership posterior probability')
 
         xax2 = xax.twinx()
-        xax2.scatter(x,np.exp(Model.fg_x(res)),c='cornflowerblue', label='RGBB Model')
-        xax.scatter(x,np.exp(Model.bg_x(res)),c='orange', label='RGB Model')
+        xax2.scatter(x,np.exp(ModeLLs.gauss_x(res)),c='cornflowerblue', label='RGBB Model')
+        xax.scatter(x,np.exp(ModeLLs.exp_x(res)),c='orange', label='RGB Model')
         xax.hist(x,bins=bins,histtype='step',color='r',normed=True)
 
         sax.set_ylabel(r"$log_{10}(T_{eff})$")
@@ -235,4 +246,4 @@ if __name__ == '__main__':
         #M = 1.20 MSun, Undershoot ="+US+"\n\
         #Columns: Teff (K) - L (LSun) - numax (muHz) - dnu (muHz) - g (cm/s^2) - logT - logL - logg - lognumax - label\n\
         #Teff\t\t\t\tL\t\t\t\tnumax\t\t\t\tdnu\t\t\t\tg\t\t\t\tlogT\t\t\t\tlogL\t\t\t\tlogg\t\t\t\tlognumax\t\t\t\tlabel"
-        df.to_csv('data/m1.20.ovh0.01d.ovhe0.50s.z0.01756.y0.26618.under'+US+'_labeled.txt',header=header,sep='\t')
+        df.to_csv(sfile+'_labeled.txt',header=header,sep='\t')
