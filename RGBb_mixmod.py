@@ -31,6 +31,8 @@ def get_values():
     df['lognumax'] = np.log10(df.numax)
 
     df = df.sort_values(by=['numax'])
+    df = df[df.lognumax <= 2.0]
+
     return df.lognumax, df.logT, df, files
 
 class cLikelihood:
@@ -72,7 +74,7 @@ class cLikelihood:
         logL = self.lnprob(p)
         return logL
 
-def probability_plot(x, y, fy, X, Y, bins, exp_x, line_y, bi_x, bi_y):
+def probability_plot(x, y, fy, X, Y, bins, exp_x, line_y, bi_g, bi_x, bi_y):
     #Plotting residuals with histograms
     left, bottom, width, height = 0.1, 0.35, 0.60, 0.60
     fig = plt.figure(1, figsize=(8,8))
@@ -187,7 +189,7 @@ if __name__ == '__main__':
                             1.8, fn[0], fn[1], np.std(y-fy),\
                             0.5])
     bounds = [(lnuguess-.1, lnuguess+.1,), (lteffguess-0.05,lteffguess+0.05),\
-                (0.01,0.1), (0.5*np.std(y), 1.5*np.std(y)), (-1., 0.),\
+                (0.01,0.1), (0.1*np.std(y), 1.5*np.std(y)), (-1., 0.),\
                 (1.4, 2.2), (fn[0]*0.8, fn[0]*1.2), (fn[1]*0.8, fn[1]*1.2),\
                 (np.std(y-fy)*0.5, np.std(y-fy)*1.5),\
                 (0,1)]
@@ -203,7 +205,7 @@ if __name__ == '__main__':
     line_y = np.exp(ModeLLs.gauss_line_y(start_params))
     bi_x, bi_y = ModeLLs.return_bivar_sologauss(start_params)
 
-    fig = probability_plot(x, y, fy, X, Y, bins, exp_x, line_y, bi_x, bi_y)
+    fig = probability_plot(x, y, fy, X, Y, bins, exp_x, line_y, bi_g, bi_x, bi_y)
     fig.savefig('Output/visual_RGB.png')
     plt.show()
     plt.close('all')
@@ -227,7 +229,7 @@ if __name__ == '__main__':
     mask = lnK > 1
     Fit.dump()
     sys.exit()
-    
+
 ####---PLOTTING RESULTS
     print('Plotting results...')
     npa = chain.shape[1]
@@ -237,7 +239,7 @@ if __name__ == '__main__':
         res[idx] = np.median(chain[:,idx])
         std[idx] = np.std(chain[:,idx])
 
-    resy = res[3]*x + res[4]
+    resy = res[ModeLLs.locm]*x + res[ModeLLs.locc]
 
     #Getting meshgrid version of bivariate model
     ModeLLs = cLLModels.LLModels(X, Y, labels_mc)
@@ -249,7 +251,7 @@ if __name__ == '__main__':
     line_y = np.exp(ModeLLs.gauss_line_y(res))
     bi_x, bi_y = ModeLLs.return_bivar_sologauss(res)
 
-    fig = probability_plot(x, y, resy, X, Y, bins, exp_x, line_y, bi_x, bi_y)
+    fig = probability_plot(x, y, resy, X, Y, bins, exp_x, line_y, bi_g, bi_x, bi_y)
     fig.savefig('Output/visual_result_RGB.png')
     plt.show()
     plt.close('all')
