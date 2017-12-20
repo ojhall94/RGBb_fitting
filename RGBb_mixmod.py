@@ -72,10 +72,61 @@ class cLikelihood:
         logL = self.lnprob(p)
         return logL
 
+def probability_plot(x, y, fy, X, Y, bins, exp_x, line_y, bi_x, bi_y):
+    #Plotting residuals with histograms
+    left, bottom, width, height = 0.1, 0.35, 0.60, 0.60
+    fig = plt.figure(1, figsize=(8,8))
+    sax = fig.add_axes([left, bottom, width, height])
+    yax = fig.add_axes([left+width+0.02, bottom, 0.25, height])
+    xax = fig.add_axes([left, 0.1, width, 0.22], sharex=sax)
+    lax = fig.add_axes([left+width+0.02, 0.1, 0.25, 0.22])
+    sax.xaxis.set_visible(False)
+    yax.set_yticklabels([])
+    yax.set_xticklabels([])
+    lax.set_yticklabels([])
+    xax.set_yticklabels([])
+    xax2 = xax.twinx()
+    xax2.set_yticklabels([])
+    xax.grid()
+    xax.set_axisbelow(True)
+    yax.grid()
+    yax.set_axisbelow(True)
+    lax.grid()
+    lax.set_axisbelow(True)
 
+    fig.suptitle('Probability functions to be applied to APOGEE data.')
+
+    sax.hist2d(x, y,bins=bins, cmap='Blues_r', zorder=1000)
+    sax.plot(x,fy,c='r',linestyle='--',label='Straight line fit', zorder=1001)
+    c4 = sax.contour(X,Y,bi_g, cmap='copper',alpha=.5,label='Bivariate Gaussian',zorder=1001)
+
+    yax.hist(y,bins=bins,color='r',histtype='step',orientation='horizontal', normed=True)
+    yax.scatter(bi_y,y,s=5,c='cornflowerblue',alpha=.5,label='Bivariate in Y')
+    yax.set_ylim(sax.get_ylim())
+    yax.legend(loc='best')
+
+
+    xax2.scatter(x,bi_x,s=5,c ='cornflowerblue', alpha=.5,label='Biavariate in X')
+    xax.scatter(x,exp_x,s=5,c='orange', alpha=.5,label='RGB Model in X')
+    xax.hist(x,bins=bins,histtype='step',color='r',normed=True)
+    h1, l1 = xax.get_legend_handles_labels()
+    h2, l2 = xax2.get_legend_handles_labels()
+    xax.legend(h1+h2, l1+l2)
+
+    lax.hist(y-fy,bins=bins,histtype='step',color='r',normed=True)
+    lax.scatter(y-fy, line_y, s=5,c='orange',alpha=.5, label='RGB Model in Y')
+    lax.set_xlabel(r"log$_{10}$($T_{\rm{eff}}$) - Line Fit")
+    lax.axvline(0.0,c='r',linestyle='--',label='Line Fit')
+    lax.legend(loc='best')
+
+    sax.set_ylabel(r"log$_{10}$($T_{\rm{eff}}$)")
+    xax.set_xlabel(r"log$_{10}$($\nu_{\rm{max}}$)")
+
+    return fig
 
 if __name__ == '__main__':
     plt.close('all')
+
 ####---SETTING UP DATA
     x, y, df, sfile = get_values()
 
@@ -88,48 +139,34 @@ if __name__ == '__main__':
     ax[0].set_ylabel(r"$log_{10}$($T_{eff}$ (K))")
     ax[0].legend(loc='best',fancybox=True)
 
+    #Making first guess for mu_x
     n, b = np.histogram(10**x,bins=bins)
-    lognuguess = np.log10(b[np.argmax(n)])
+    lnuguess = np.log10(b[np.argmax(n)])
 
     ax[1].hist(x, bins=bins, color ='k', histtype='step', normed=1)
-    ax[1].axvline(lognuguess,c='r',label=r"$\nu_{max}$ estimate")
+    ax[1].axvline(lnuguess,c='r',label=r"$\nu_{max}$ estimate")
     ax[1].set_title(r"Histogram in $log_{10}$($\nu_{max}$)")
     ax[1].set_xlabel(r"$log_{10}$($\nu_{max}$ ($\mu$Hz))")
     fig.tight_layout()
     fig.savefig('Output/investigate_RGB.png')
     plt.close('all')
 
-####---SETTING UP MCMC
+####---BUILDING KDE AND OTHER PARAM ESTIMATES
+
+    #Making first guess for x, y
     fn = np.polyfit(x, y, 1)
     fy = x*fn[0]+fn[1]
-
-    labels_mc = [r"$\mu_x$", r"$\mu_y$", r"$\sigma_x$", r"$\sigma_y$", r"$\rho$", r"$\lambda$","m","c",r"$\sigma$","$Q$"]
-    start_params = np.array([lognuguess, 0.02, \
-                            1.8,\
-                            fn[0], fn[1], np.std(y-fy),\
-                            0.5])
-    bounds = [(lognuguess-.05, lognuguess+.05,), (0.01,0.05),\
-                (1.4, 2.2),\
-                (fn[0]*0.8, fn[0]*1.2), (fn[1]*0.8, fn[1]*1.2),\
-                (np.std(y-fy)*0.5, np.std(y-fy)*1.5),\
-                (0,1)]
-
-    ModeLLs = cLLModels.LLModels(x, y, labels_mc)
-    lnprior = cPrior.Prior(bounds)
-    Like = cLikelihood(lnprior,ModeLLs)
-
-####---CHECKING MODELS BEFORE RUN
 
     #Getting the KDE of the 2D distribution
     xxyy = np.ones([len(x),2])
     xxyy[:,0] = x
-    xxyy[:,1] = y - fy
+    xxyy[:,1] = y
     kde = stats.gaussian_kde(xxyy.T)
 
     #Setting up a 2D meshgrid
     size = 200
     xx = np.linspace(x.min(),x.max(),size)
-    yy = np.linspace((y-fy).min(),(y-fy).max(),size)
+    yy = np.linspace(y.min(),y.max(),size)
     X, Y  = np.meshgrid(xx, yy)
     d = np.ones([size, size])
 
@@ -138,43 +175,44 @@ if __name__ == '__main__':
         for jdx, j in enumerate(yy):
             d[jdx, idx] = kde([i,j])
 
-    #Plotting residuals with histograms
-    left, bottom, width, height = 0.1, 0.35, 0.65, 0.60
-    fig = plt.figure(1, figsize=(8,8))
-    sax = fig.add_axes([left, bottom, width, height])
-    yax = fig.add_axes([left+width+0.02, bottom, 0.2, height])
-    xax = fig.add_axes([left, 0.1, width, 0.22], sharex=sax)
-    sax.xaxis.set_visible(False)
-    yax.set_yticklabels([])
-    xax.grid()
-    xax.set_axisbelow(True)
-    yax.grid()
-    yax.set_axisbelow(True)
+    #Making first guess for mu_y
+    lteffguess = Y.ravel()[np.argmax(d)]
 
-    fig.suptitle('KDE of RGBB residuals to straight line polyfit (real data)')
 
-    sax.hist2d(xxyy[:,0],xxyy[:,1],bins=bins, cmap='Blues_r', zorder=1000)
-    sax.contour(X,Y,d, cmap='copper', zorder=1001, label='Kernel Density',)
-    sax.axhline(0.,c='r')
-    sax.legend(loc='best',fancybox=True)
+####---SETTING UP MCMC
+    labels_mc = [r"$\mu_x$", r"$\mu_y$", r"$\sigma_x$", r"$\sigma_y$", r"$\rho$",\
+                r"$\lambda$","m","c",r"$\sigma$",\
+                "$Q$"]
+    start_params = np.array([lnuguess, lteffguess, 0.07, np.std(y), -0.8,\
+                            1.8, fn[0], fn[1], np.std(y-fy),\
+                            0.5])
+    bounds = [(lnuguess-.1, lnuguess+.1,), (lteffguess-0.05,lteffguess+0.05),\
+                (0.01,0.1), (0.5*np.std(y), 1.5*np.std(y)), (-1., 0.),\
+                (1.4, 2.2), (fn[0]*0.8, fn[0]*1.2), (fn[1]*0.8, fn[1]*1.2),\
+                (np.std(y-fy)*0.5, np.std(y-fy)*1.5),\
+                (0,1)]
 
-    yax.hist(y-fy,bins=bins,histtype='step',orientation='horizontal', normed=True)
-    yax.scatter(np.exp(ModeLLs.gauss_line_y(start_params)), y-fy,c='orange',label='Line Fit Model')
-    yax.set_ylim(sax.get_ylim())
+####---CHECKING MODELS BEFORE RUN
+    #Getting meshgrid version of bivariate model
+    ModeLLs = cLLModels.LLModels(X, Y, labels_mc)
+    bi_g = np.exp(ModeLLs.bivar_gaussian(start_params))
 
-    xax2 = xax.twinx()
-    xax2.scatter(x,np.exp(ModeLLs.gauss_x(start_params)),c='cornflowerblue', label='RGBB Model')
-    xax.scatter(x,np.exp(ModeLLs.exp_x(start_params)),c='orange', label='RGB Model')
-    xax.hist(x,bins=bins,histtype='step',color='r',normed=True)
+    #Getting other probability functions
+    ModeLLs = cLLModels.LLModels(x, y, labels_mc)
+    exp_x = np.exp(ModeLLs.exp_x(start_params))
+    line_y = np.exp(ModeLLs.gauss_line_y(start_params))
+    bi_x, bi_y = ModeLLs.return_bivar_sologauss(start_params)
 
-    sax.set_ylabel(r"$log_{10}(T_{eff})$ - Straight line Fit")
-    xax.set_xlabel(r"$log_{10}(\nu_{max})$")
+    fig = probability_plot(x, y, fy, X, Y, bins, exp_x, line_y, bi_x, bi_y)
+    fig.savefig('Output/visual_RGB.png')
     plt.show()
-    fig.savefig('Output/KDE_visual_RGB.png')
     plt.close('all')
 
-
 ####---RUNNING MCMC
+    ModeLLs = cLLModels.LLModels(x, y, labels_mc)
+    lnprior = cPrior.Prior(bounds)
+    Like = cLikelihood(lnprior,ModeLLs)
+
     ntemps, nwalkers = 4, 32
 
     Fit = cMCMC.MCMC(start_params, Like, lnprior, 'none', ntemps, 1000, nwalkers)
@@ -189,6 +227,7 @@ if __name__ == '__main__':
     mask = lnK > 1
     Fit.dump()
     sys.exit()
+    
 ####---PLOTTING RESULTS
     print('Plotting results...')
     npa = chain.shape[1]
@@ -200,43 +239,35 @@ if __name__ == '__main__':
 
     resy = res[3]*x + res[4]
 
-    #Plotting residuals with histograms
-    #Plotting residuals with histograms
-    left, bottom, width, height = 0.1, 0.35, 0.55, 0.60
-    fig = plt.figure(1, figsize=(8,8))
-    sax = fig.add_axes([left, bottom, width, height])
-    yax = fig.add_axes([left+width+0.02, bottom, 0.2, height])
-    xax = fig.add_axes([left, 0.1, width, 0.22], sharex=sax)
-    sax.xaxis.set_visible(False)
-    yax.set_yticklabels([])
-    xax.grid()
-    xax.set_axisbelow(True)
-    yax.grid()
-    yax.set_axisbelow(True)
-    # colax = fig.add_axes([left+width+0.02+0.2+0.02, bottom,0.1, height])
+    #Getting meshgrid version of bivariate model
+    ModeLLs = cLLModels.LLModels(X, Y, labels_mc)
+    bi_g = np.exp(ModeLLs.bivar_gaussian(res))
 
-    fig.suptitle('KDE of RGBB residuals to straight line polyfit (real data)')
+    #Getting other probability functions
+    ModeLLs = cLLModels.LLModels(x, y, labels_mc)
+    exp_x = np.exp(ModeLLs.exp_x(res))
+    line_y = np.exp(ModeLLs.gauss_line_y(res))
+    bi_x, bi_y = ModeLLs.return_bivar_sologauss(res)
 
-    col = sax.scatter(x, y-resy, c=fg_pp, s=5, cmap='viridis')
-    sax.axhline(0.,c='r',linestyle='--')
-    fig.colorbar(col, ax=yax, label = 'RGBB membership posterior probability')
+    fig = probability_plot(x, y, resy, X, Y, bins, exp_x, line_y, bi_x, bi_y)
+    fig.savefig('Output/visual_result_RGB.png')
+    plt.show()
+    plt.close('all')
 
-    yax.hist(y-resy,bins=bins,histtype='step',orientation='horizontal', normed=True)
-    yax.scatter(np.exp(ModeLLs.gauss_line_y(res)), y-resy,c='orange',label='Line Fit Model')
-    yax.set_ylim(sax.get_ylim())
+    #Plotting results
+    fig, ax = plt.subplots()
+    ax.grid()
+    ax.set_axisbelow(True)
 
-    xax2 = xax.twinx()
-    xax2.scatter(x,np.exp(ModeLLs.gauss_x(res)),c='cornflowerblue', label='RGBB Model')
-    xax.scatter(x,np.exp(ModeLLs.exp_x(res)),c='orange', label='RGB Model')
-    xax.hist(x,bins=bins,histtype='step',color='r',normed=True)
+    col = ax.scatter(x, y, c=fg_pp, s=5, cmap='viridis')
+    ax.plot(x, resy, c='r',linestyle='--',label='Line Fit')
+    fig.colorbar(col, ax=yax, label = 'RGBb membership posterior probability')
 
-    sax.set_ylabel(r"log$_{10}(T_{eff})$ - Straight Line Fit")
+    sax.set_ylabel(r"log$_{10}(T_{\rm{eff}})$")
     xax.set_xlabel(r"log$_{10}(\nu_{\rm{max}})$")
     fig.savefig('Output/result_RGB.png')
     plt.show()
     plt.close('all')
-
-
 
 
     #Plotting identified RGBB stars

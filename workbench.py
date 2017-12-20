@@ -21,6 +21,7 @@ import scipy.stats as stats
 import cPrior
 import cLikelihood
 import cMCMC
+import cLLModels
 
 def get_values(US):
     if US == 'RGB':
@@ -44,6 +45,49 @@ def get_values(US):
 
 if __name__ == "__main__":
     plt.close('all')
+    x, y, df = get_values('RGB')
+    size = 1000
+    xx = np.linspace(x.min(),x.max(),size)
+    yy = np.linspace(y.min(),y.max(),size)
+    X, Y  = np.meshgrid(xx, yy)
+
+    labels_mc = [r"$\mu_x$", r"$\mu_y$", r"$\sigma_x$", r"$\sigma_y$", r"$\rho$",\
+                r"$\lambda$","m","c",r"$\sigma$",\
+                "$Q$"]
+
+    start_params = np.array([1.65, 3.67, 0.07, 0.015, -.8,\
+                            1.8, 0.04, 3.6, 0.01,\
+                            0.5])
+
+    ModeLLs = cLLModels.LLModels(X, Y, labels_mc)
+    fg = np.exp(ModeLLs.bivar_gaussian(start_params))
+
+    plt.scatter(x, y, s=5, alpha=.5)
+    plt.contour(X, Y, fg)
+    plt.show()
+
+    sys.exit()
+
+    xx = np.arange(-5,5,0.2)
+    yy = np.arange(-5,5,0.2)
+    x, y = np.meshgrid(xx, yy)
+
+    mx = 0.
+    my = 0.
+    sigy = 3.
+    sigx = 0.1
+    rho = -.8
+
+    lnLxy = -np.log(2*np.pi) - np.log(sigx*sigy) - 0.5*np.log(1-rho**2) -\
+            (1/(2*(1-rho**2))) * (\
+            (x - mx)**2/sigx**2 + (y - my)**2/sigy**2 -\
+            (2*rho*(x - mx)*(y - my))/(sigx * sigy))
+
+    f = np.exp(lnLxy)
+    plt.contour(x, y, f)
+    plt.show()
+
+    sys.exit()
     x, y, df = get_values('RGB')
 
     mlo = np.arange(0.9,1.7,0.2)
