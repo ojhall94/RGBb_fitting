@@ -44,6 +44,29 @@ def get_values(US):
 
 
 if __name__ == "__main__":
+    files = glob.glob('data/trilegal_keplerfov.txt')[0]
+    df = pd.read_table(files, sep=',', header=0, error_bad_lines=False)
+
+    df['logT'] = np.log10(df.teff)
+    df['lognumax'] = np.log10(df.numax)
+
+    df = df.sort_values(by=['numax'])
+
+    x = df.lognumax
+    y = df.logT
+
+    ModeLLs = cLLModels.LLModels(x, y, [r"$z$"])
+    lnbg = np.exp(ModeLLs.tophat_x([5000000]))
+
+
+    bins = int(np.sqrt(len(x)))
+    fig, ax = plt.subplots()
+    ax.hist(x,bins=bins,histtype='step')
+    ax.scatter(x,lnbg,s=5,c='orange',alpha=.5)
+    plt.show()
+
+    sys.exit()
+
     plt.close('all')
     x, y, df = get_values('RGB')
     size = 1000

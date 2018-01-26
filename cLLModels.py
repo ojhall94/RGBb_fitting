@@ -29,6 +29,8 @@ class LLModels:
         except: pass
         try: self.locrho = np.where(np.array(_labels)==r"$\rho$")[0][0]
         except: pass
+        try: self.locz = np.where(np.array(_labels)==r"$z$")[0][0]
+        except: pass
 
 
     def gauss_x(self, p):
@@ -47,6 +49,15 @@ class LLModels:
         #Calculating the likelihood in the X direction
         A = lambd * (np.exp(lambd*self.x.max()) - np.exp(lambd*self.x.min()))**-1
         lnLx = np.log(A) + lambd*self.x
+        return lnLx
+
+    def tophat_x(self, p):
+        '''A simple top hat probability function normalised in x space'''
+        z = p[self.locz]
+
+        #Calculating the likelihood in the X direction with appropriate normalization
+        A = (z*self.x.max() - z*self.x.min())**-1
+        lnLx = np.log(A * np.ones(self.x.shape)*z)
         return lnLx
 
     def gauss_line_y(self, p):

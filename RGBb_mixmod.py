@@ -144,7 +144,7 @@ if __name__ == '__main__':
     flo = np.arange(-0.5,0.3,0.2)
     fhi = np.arange(-0.3,0.5,0.2)
 
-    x, y, df = get_values('rgb')
+    x, y, df = get_values('trilegal')
 
 ####---SETTING UP DATA
 
@@ -196,6 +196,9 @@ if __name__ == '__main__':
     #Making first guess for mu_y
     lteffguess = Y.ravel()[np.argmax(d)]
 
+    '''HARD CODING IN SOME GUESS HERE FOR THE TRILEGAL SIM'''
+    lnuguess = 1.5
+
 
 ####---SETTING UP MCMC
     labels_mc = [r"$\mu_x$", r"$\mu_y$", r"$\sigma_x$", r"$\sigma_y$", r"$\rho$",\
@@ -209,7 +212,6 @@ if __name__ == '__main__':
                 (1.4, 2.2), (fn[0]*0.8, fn[0]*1.2), (fn[1]*0.8, fn[1]*1.2),\
                 (np.std(y-fy)*0.5, np.std(y-fy)*1.5),\
                 (0,1)]
-
 ####---CHECKING MODELS BEFORE RUN
     #Getting meshgrid version of bivariate model
     ModeLLs = cLLModels.LLModels(X, Y, labels_mc)
@@ -225,6 +227,7 @@ if __name__ == '__main__':
     fig.savefig('Output/visual_RGB.png')
     plt.show()
     plt.close('all')
+    sys.exit()
 
 ####---RUNNING MCMC
     ModeLLs = cLLModels.LLModels(x, y, labels_mc)
@@ -278,7 +281,7 @@ if __name__ == '__main__':
 
     col = ax.scatter(x, y, c=fg_pp, s=5, cmap='viridis')
     ax.plot(x, resy, c='r',linestyle='--',label='Line Fit')
-    fig.colorbar(col, ax=yax, label = 'RGBb membership posterior probability')
+    fig.colorbar(col, ax=ax, label = 'RGBb membership posterior probability')
 
     sax.set_ylabel(r"log$_{10}(T_{\rm{eff}})$")
     xax.set_xlabel(r"log$_{10}(\nu_{\rm{max}})$")
