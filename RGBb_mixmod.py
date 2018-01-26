@@ -22,18 +22,29 @@ import cPrior
 import cLLModels
 import cMCMC
 
-def get_values():
-    files = glob.glob('data/RGB_data.txt')[0]
-    df = pd.read_table(files, sep=',', header=0, error_bad_lines=False)
+def get_values(style):
+    if style == 'rgb':
+        files = glob.glob('data/RGB_data.txt')[0]
+        df = pd.read_table(files, sep=',', header=0, error_bad_lines=False)
 
-    df['logT'] = np.log10(df.Teff)
-    df['logL'] = np.log10(df.L)
-    df['lognumax'] = np.log10(df.numax)
+        df['logT'] = np.log10(df.Teff)
+        df['logL'] = np.log10(df.L)
+        df['lognumax'] = np.log10(df.numax)
 
-    df = df.sort_values(by=['numax'])
-    # df = df[df.lognumax <= 2.0]
+        df = df.sort_values(by=['numax'])
+        # df = df[df.lognumax <= 2.0]
 
-    return df.lognumax, df.logT, df, files
+    if style == 'trilegal':
+        files = glob.glob('data/trilegal_keplerfov.txt')[0]
+        df = pd.read_table(files, sep=',', header=0, error_bad_lines=False)
+
+        df['logT'] = np.log10(df.teff)
+        df['lognumax'] = np.log10(df.numax)
+
+        df = df.sort_values(by=['numax'])
+
+
+    return df.lognumax, df.logT, df
 
 class cLikelihood:
     '''A likelihood function that pulls in log likehoods from the LLModels class
@@ -108,7 +119,7 @@ def probability_plot(x, y, fy, X, Y, bins, exp_x, line_y, bi_g, bi_x, bi_y):
     yax.legend(loc='best')
 
 
-    xax2.scatter(x,bi_x,s=5,c ='cornflowerblue', alpha=.5,label='Biavariate in X')
+    xax2.scatter(x,bi_x,s=5,c ='cornflowerblue', alpha=.5,label='Bivariate in X')
     xax.scatter(x,exp_x,s=5,c='orange', alpha=.5,label='RGB Model in X')
     xax.hist(x,bins=bins,histtype='step',color='r',normed=True)
     h1, l1 = xax.get_legend_handles_labels()
@@ -133,37 +144,31 @@ if __name__ == '__main__':
     flo = np.arange(-0.5,0.3,0.2)
     fhi = np.arange(-0.3,0.5,0.2)
 
-    xfull, yfull, df, sfile = get_values()
-    for lo1, hi1 in zip(mlo,mhi):
-        for lo2, hi2 in zip(flo,fhi):
-            sel = np.where((df.mass > lo1) & (df.mass < hi1) & (df.FeH > lo2) & (df.FeH < hi2))[0]
-            x = xfull.values[sel]
-            y = yfull.values[sel]
-            subset = str(lo1)+'<M<'+str(hi1)+'\_'+str(lo2)+'<FeH<'+str(hi2)
+    x, y, df = get_values('rgb')
+
 ####---SETTING UP DATA
 
-            bins = int(np.sqrt(len(x)))
+    bins = int(np.sqrt(len(x)))
 
-            #Plotting the data to be fit to
-            fig, ax = plt.subplots(2, sharex=True)
-            ax[0].scatter(x, y, s=3, zorder=1000)
-            ax[0].set_title(r'APOGEE data, $'+subset+r'$')
-            ax[0].set_ylabel(r"$log_{10}$($T_{eff}$ (K))")
-            ax[0].legend(loc='best',fancybox=True)
+    #Plotting the data to be fit to
+    fig, ax = plt.subplots(2, sharex=True)
+    ax[0].scatter(x, y, s=3, zorder=1000)
+    ax[0].set_title(r'APOGEE data')
+    ax[0].set_ylabel(r"$log_{10}$($T_{eff}$ (K))")
+    ax[0].legend(loc='best',fancybox=True)
 
-            #Making first guess for mu_x
-            n, b = np.histogram(10**x,bins=bins)
-            lnuguess = np.log10(b[np.argmax(n)])
+    #Making first guess for mu_x
+    n, b = np.histogram(10**x,bins=bins)
+    lnuguess = np.log10(b[np.argmax(n)])
 
-            ax[1].hist(x, bins=bins, color ='k', histtype='step', normed=1)
-            ax[1].axvline(lnuguess,c='r',label=r"$\nu_{max}$ estimate")
-            ax[1].set_title(r"Histogram in $log_{10}$($\nu_{max}$)")
-            ax[1].set_xlabel(r"$log_{10}$($\nu_{max}$ ($\mu$Hz))")
-            fig.tight_layout()
-            fig.savefig('Output/investigate_RGB_'+subset+'.png')
-            plt.close('all')
+    ax[1].hist(x, bins=bins, color ='k', histtype='step', normed=1)
+    ax[1].axvline(lnuguess,c='r',label=r"$\nu_{max}$ estimate")
+    ax[1].set_title(r"Histogram in $log_{10}$($\nu_{max}$)")
+    ax[1].set_xlabel(r"$log_{10}$($\nu_{max}$ ($\mu$Hz))")
+    fig.tight_layout()
+    fig.savefig('Output/investigate_RGB.png')
+    plt.close('all')
 
-    sys.exit()
 ####---BUILDING KDE AND OTHER PARAM ESTIMATES
 
     #Making first guess for x, y
