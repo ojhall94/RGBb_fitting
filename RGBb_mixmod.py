@@ -42,7 +42,7 @@ def get_values(style):
         df['lognumax'] = np.log10(df.numax)
 
         df = df.sort_values(by=['numax'])
-
+        df = df[(df.lognumax > 1.) & (df.lognumax < 2.)]
 
     return df.lognumax, df.logT, df
 
@@ -58,7 +58,7 @@ class cLikelihood:
         return self.Model.bivar_gaussian(p)
 
     def lnlike_bg(self, p):
-        return self.Model.exp_x(p) + self.Model.gauss_line_y(p)
+        return self.Model.tophat_x(p) + self.Model.gauss_line_y(p)
 
     def lnprob(self, p):
         Q = p[-1]
@@ -202,14 +202,14 @@ if __name__ == '__main__':
 
 ####---SETTING UP MCMC
     labels_mc = [r"$\mu_x$", r"$\mu_y$", r"$\sigma_x$", r"$\sigma_y$", r"$\rho$",\
-                r"$\lambda$","m","c",r"$\sigma$",\
+                "m","c",r"$\sigma$",\
                 "$Q$"]
     start_params = np.array([lnuguess, lteffguess, 0.07, np.std(y), -0.8,\
-                            1.8, fn[0], fn[1], np.std(y-fy),\
+                            fn[0], fn[1], np.std(y-fy),\
                             0.5])
     bounds = [(lnuguess-.1, lnuguess+.1,), (lteffguess-0.05,lteffguess+0.05),\
                 (0.01,0.1), (0.1*np.std(y), 1.5*np.std(y)), (-1., 0.),\
-                (1.4, 2.2), (fn[0]*0.8, fn[0]*1.2), (fn[1]*0.8, fn[1]*1.2),\
+                (fn[0]*0.8, fn[0]*1.2), (fn[1]*0.8, fn[1]*1.2),\
                 (np.std(y-fy)*0.5, np.std(y-fy)*1.5),\
                 (0,1)]
 ####---CHECKING MODELS BEFORE RUN
@@ -219,15 +219,15 @@ if __name__ == '__main__':
 
     #Getting other probability functions
     ModeLLs = cLLModels.LLModels(x, y, labels_mc)
-    exp_x = np.exp(ModeLLs.exp_x(start_params))
+    # exp_x = np.exp(ModeLLs.exp_x(start_params))
+    tophat_x = np.exp(ModeLLs.tophat_x(start_params))
     line_y = np.exp(ModeLLs.gauss_line_y(start_params))
     bi_x, bi_y = ModeLLs.return_bivar_sologauss(start_params)
 
-    fig = probability_plot(x, y, fy, X, Y, bins, exp_x, line_y, bi_g, bi_x, bi_y)
+    fig = probability_plot(x, y, fy, X, Y, bins, tophat_x, line_y, bi_g, bi_x, bi_y)
     fig.savefig('Output/visual_RGB.png')
     plt.show()
     plt.close('all')
-    sys.exit()
 
 ####---RUNNING MCMC
     ModeLLs = cLLModels.LLModels(x, y, labels_mc)
@@ -265,11 +265,12 @@ if __name__ == '__main__':
 
     #Getting other probability functions
     ModeLLs = cLLModels.LLModels(x, y, labels_mc)
-    exp_x = np.exp(ModeLLs.exp_x(res))
+    # exp_x = np.exp(ModeLLs.exp_x(start_params))
+    tophat_x = np.exp(ModeLLs.tophat_x(start_params))
     line_y = np.exp(ModeLLs.gauss_line_y(res))
     bi_x, bi_y = ModeLLs.return_bivar_sologauss(res)
 
-    fig = probability_plot(x, y, resy, X, Y, bins, exp_x, line_y, bi_g, bi_x, bi_y)
+    fig = probability_plot(x, y, resy, X, Y, bins, tophat_x, line_y, bi_g, bi_x, bi_y)
     fig.savefig('Output/visual_result_RGB.png')
     plt.show()
     plt.close('all')

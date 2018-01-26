@@ -53,7 +53,7 @@ class LLModels:
 
     def tophat_x(self, p):
         '''A simple top hat probability function normalised in x space'''
-        z = p[self.locz]
+        z = 1
 
         #Calculating the likelihood in the X direction with appropriate normalization
         A = (z*self.x.max() - z*self.x.min())**-1
